@@ -1,0 +1,47 @@
+name: Deploy app to Amazon EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      appName:
+        description: ' The name of application'
+        required: true
+      clusterName:
+        description: ' The name of your EKS cluster'
+        required: true
+      region:
+        description: 'The AWS region where the cluster will be deployed'
+        required: true
+      image:
+        description: 'Image for deployment'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: {% raw %}${{ secrets.AWS_ACCESS_KEY_ID }}{% endraw %}
+
+          aws-region: us-east-1
+          
+          aws-secret-access-key: {% raw %}${{ secrets.AWS_SECRET_ACCESS_KEY }}{% endraw %}
+
+     # update the context to the EKS cluster of app
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name {% raw %}${{ github.event.inputs.clusterName }}{% endraw %} --region {% raw %}${{ github.event.inputs.region }}{% endraw %}
+      
+      - name: Deployment app
+        run: |
+          export IMAGE={% raw %}${{ github.event.inputs.image }}{% endraw %}
+          export APP_NAME={% raw %}${{ github.event.inputs.appName }}{% endraw %}
+          envsubst < app/deployment.yaml | kubectl apply -f - 

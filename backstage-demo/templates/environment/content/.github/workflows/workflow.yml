@@ -1,0 +1,65 @@
+name: Create Amazon EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      clusterName:
+        description: ' The name of your EKS cluster'
+        required: true
+      region:
+        description: 'The AWS region where the cluster will be deployed'
+        required: true
+      version:
+        description: 'EKS version'
+        required: true
+      clusterRole:
+        description: 'The Role of your EKS cluster'
+        required: true
+      subnet01:
+        description: 'Subnet 1 ID'
+        required: true
+      subnet02:
+        description: 'Subnet 2 ID'
+        required: true
+      nodeGroupName:
+        description: 'The Name of NodeGroup'
+        required: true
+      nodeGroupRole:
+        description: 'The ARN of NodeGroup Role'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: {% raw %}${{ secrets.AWS_ACCESS_KEY_ID }}{% endraw %}
+
+          aws-region: us-east-1
+          
+          aws-secret-access-key: {% raw %}${{ secrets.AWS_SECRET_ACCESS_KEY }}{% endraw %}
+
+     # update the context to the EKS cluster of ACK
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name karpenter-demo --region us-east-1
+
+      - name: Create new EKS Cluster using ACK
+        run: |
+          export CLUSTER_NAME={% raw %}${{ github.event.inputs.clusterName }}{% endraw %}
+          export VERSION={% raw %}${{ github.event.inputs.version }}{% endraw %}
+          export REGION={% raw %}${{ github.event.inputs.region }}{% endraw %}
+          export CLUSTER_ROLE={% raw %}${{ github.event.inputs.clusterRole }}{% endraw %}
+          export SUBNET_01={% raw %}${{ github.event.inputs.subnet01 }}{% endraw %}
+          export SUBNET_02={% raw %}${{ github.event.inputs.subnet02 }}{% endraw %}
+          export NODEGROUP_NAME={% raw %}${{ github.event.inputs.nodeGroupName }}{% endraw %}
+          export NODEGROUP_ROLE={% raw %}${{ github.event.inputs.nodeGroupRole }}{% endraw %}
+          envsubst < ack/cluster.yaml | kubectl apply -f - 

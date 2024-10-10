@@ -1,0 +1,108 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: eks-environment
+  title: Create an EKS environment
+  description: Create an EKS environment
+spec:
+  owner: user:guest
+  type: template
+
+  parameters:
+    - title: Basic EKS Cluster Configuration
+      required:
+        - environment
+        - cluster
+      properties:
+        environment:
+          title: environment Name
+          type: string
+          description: The name of your environment
+        cluster:
+          title: eks cluster
+          type: string
+          description: The cluster you have created
+          ui:field: EntityPicker
+          ui:options:
+            allowedKinds:
+              - Resource
+            catalogFilter:
+              - kind: Resource
+                metadata.environmentType: eks
+    # - title: Choose a Repo location
+    #   required:
+    #     - repoUrl
+    #   properties:
+    #     repoUrl:
+    #       title: Repository Location
+    #       type: string
+    #       ui:field: RepoUrlPicker
+    #       ui:options:
+    #         allowedHosts:
+    #           - github.com
+
+  steps:
+    - id: fetch-eks-cluster
+      name: Fetch EKS Cluster
+      action: catalog:fetch
+      input:
+        entityRef: ${{ parameters.cluster }}
+
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          destination: ${{ parameters.repoUrl | parseRepoUrl}}
+    # This step publishes the contents of the working directory to GitHub.
+    # - id: publish
+    #   name: Publish
+    #   action: publish:github
+    #   input:
+    #     allowedHosts: ['github.com']
+    #     description: This is ${{ parameters.name }}
+    #     repoUrl: ${{ parameters.repoUrl }}
+    #     repoVisibility: public
+    #     defaultBranch: main
+
+    - action: debug:log
+      id: log-result
+      name: Log the result of creating the thing
+      input:
+        message: "The response code was ${{ steps['fetch-eks-cluster'].output.entity.metadata.eksRegion}}"
+    # - id: debug-wait
+    #   name: Waiting
+    #   action: debug:wait
+    #   input:
+    #     seconds: 5
+    #Start a GitHub Action to create an EKS cluster with ACK
+    # - id: github-action
+    #   name: Trigger GitHub Action
+    #   action: github:actions:dispatch
+    #   input:
+    #     workflowId: workflow.yml
+    #     repoUrl: ${{ parameters.repoUrl }}
+    #     branchOrTagName: 'main'
+    #     workflowInputs:
+    #       clusterName: ${{ parameters.clusterName }}
+    #       region: ${{ parameters.region }}
+    #       version: ${{ parameters.version }}
+
+  
+  # The final step is to register our new component in the catalog.
+    # - id: register
+    #   name: Register
+    #   action: catalog:register
+    #   input:
+    #     repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+    #     catalogInfoPath: '/catalog-info.yaml'
+
+  # Outputs are displayed to the user after a successful execution of the template.
+  # output:
+  #   links:
+  #     - title: Repository
+  #       url: ${{ steps['publish'].output.remoteUrl }}
+  #     - title: Open in catalog
+  #       icon: catalog
+  #       entityRef: ${{ steps['register'].output.entityRef }}

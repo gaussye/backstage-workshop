@@ -1,0 +1,109 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: eks-app-crossplane
+  title: Deploy app to EKS(Crossplane)
+  description: Deploy applications to EKS cluster
+spec:
+  owner: user:guest
+  type: service
+
+  parameters:
+    - title: Configuration
+      required:
+        - appName
+        - clusterName
+        - region
+        - image
+      properties:
+        appName:
+          title: Application Name
+          type: string
+          description: The name of application
+          ui:autofocus: true
+        clusterName:
+          title: Cluster Name
+          type: string
+          description: The name of EKS cluster that will be deployed to
+          ui:autofocus: true
+        region:
+          title: AWS Region
+          type: string
+          description: The AWS region where the EKS cluster
+          enum:
+            - ap-northeast-1
+            - us-east-1
+            - us-west-2
+        image:
+          title: The image of app
+          type: string
+          description: The image of app
+          ui:autofocus: true
+    - title: Choose a Repo location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          destination: ${{ parameters.repoUrl | parseRepoUrl}}
+          appName: ${{parameters.appName}}
+          clusterName: ${{ parameters.clusterName }}
+    # This step publishes the contents of the working directory to GitHub.
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: This is ${{ parameters.name }}
+        repoUrl: ${{ parameters.repoUrl }}
+        repoVisibility: public
+        defaultBranch: main
+    - id: debug-wait
+      name: Waiting
+      action: debug:wait
+      input:
+        seconds: 5
+    #Start a GitHub Action to create an EKS cluster with ACK
+    - id: github-action
+      name: Trigger GitHub Action
+      action: github:actions:dispatch
+      input:
+        workflowId: workflow.yml
+        repoUrl: ${{ parameters.repoUrl }}
+        branchOrTagName: 'main'
+        workflowInputs:
+          appName: ${{ parameters.appName }}
+          clusterName: ${{ parameters.clusterName }}
+          region: ${{ parameters.region }}
+          image: ${{ parameters.image }}
+
+  
+  # The final step is to register our new component in the catalog.
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  # Outputs are displayed to the user after a successful execution of the template.
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}

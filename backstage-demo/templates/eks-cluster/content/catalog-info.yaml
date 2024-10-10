@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.destination.repo }}
+  annotations:
+    github.com/project-slug: ${{values.destination.owner}}/${{values.destination.repo}}
+  description: ${{ values.destination.repo }} created by ACK(AWS Controller for Kubernetes)
+spec:
+  type: service
+  owner: user:guest
+  lifecycle: experimental
